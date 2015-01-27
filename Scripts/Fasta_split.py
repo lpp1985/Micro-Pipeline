@@ -41,7 +41,7 @@ if __name__ == '__main__':
 		status = re.search("(\w+)\n",t).group(1)
 		if length>Threshold:
 			g+=1
-			Name="Gennome%s"%(g)
+			Name="Genome%s"%(g)
 		else:
 			p+=1
 			Name="Plasmid%s"%(p)

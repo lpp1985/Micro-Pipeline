@@ -21,7 +21,7 @@ parser.add_option("-o", "--end", action="store",
 BLAST = open(options.input,'rU')
 BLAST.next()
 END = open(options.output,'w')
-END.write("Gene\tSubject\tE_value\tBitscore\tCOG\tAnnotation\tCat\tCategory Annotation\n")
+END.write("Gene\tSubject\tE_value\tBitscore\tCOG\tAnnotation\tCOG Category\n")
 for line in open(options.input,'rU'):
 	line_l = line.strip().split("\t")
 	subj= line_l[6].split()[0]
@@ -38,4 +38,4 @@ for line in open(options.input,'rU'):
 		for each_cat in nog_cat:
 			cat_anno = CAT_DES.select(CAT_DES.q.Abb==each_cat.Cat  )
 			for each_anno in cat_anno:
-				END.write(query+'\t'+subj+'\t'+e_value+'\t'+score+"\t"+each_gene_nog.NOG+'\t'+description+'\t'+each_cat.Cat+'\t'+each_anno.Description+'\n')
+				END.write(query+'\t'+subj+'\t'+e_value+'\t'+score+"\t"+each_gene_nog.NOG+'\t'+description+'\t'+each_anno.Description+'['+each_cat.Cat+']''\n')

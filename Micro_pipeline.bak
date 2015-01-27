@@ -26,466 +26,503 @@ parser.add_option("-c", "--Config", action="store",
                   help="Config File")
 
 class Download_Ref(WorkflowRunner):
-	def __init__(self,Id_All,Path):
-		self.Path = Path
-		self.Id_all = Id_All
-		self.gbk_list  = []
-		Make_path(self.Path  )
-		self.fasta = "%s/total_ref.fa"%(self.Path)
-		for each_reference in self.Id_all.split('; '):
-			self.gbk_list.append(self.Path+'/'+each_reference+'.gbk')
-	def workflow(self):
+    def __init__(self,Id_All,Path):
+        self.Path = Path
+        self.Id_all = Id_All
+        self.gbk_list  = []
+        Make_path(self.Path  )
+        self.fasta = "%s/total_ref.fa"%(self.Path)
+        for each_reference in self.Id_all.split('; '):
+            self.gbk_list.append(self.Path+'/'+each_reference+'.gbk')
+    def workflow(self):
 
-		print(
-			colored(
-				"Step 1 Download Reference into %s And Combine them"%(self.Path),
-				"green"
-			)
-		)		
+        print(
+            colored(
+                "Step 1 Download Reference into %s And Combine them"%(self.Path),
+                "green"
+            )
+        )		
 
-		i=0
-		dependcy = []
-		for each_reference in self.Id_all.split('; '):
+        i=0
+        dependcy = []
+        for each_reference in self.Id_all.split('; '):
 
-			i+=1
+            i+=1
 
-			self.addTask(
-				"Download_ref%s"%(i),
-				scripts_path+"/Download_reference.py -i %s -o %s"%(each_reference,self.Path ),
+            self.addTask(
+                "Download_ref%s"%(i),
+                scripts_path+"/Download_reference.py -i %s -o %s"%(each_reference,self.Path ),
 
-			)
+            )
 
-			dependcy.append( "Download_ref%s"%(i) )
+            dependcy.append( "Download_ref%s"%(i) )
 
-		self.addTask(
-			"Combine",
-			"cat %s >%s/total_ref.fa"%(
-				self.Path+'/*.fasta',
-				self.Path 		
-				) ,
-			dependencies = dependcy
-		)
+        self.addTask(
+            "Combine",
+            "cat %s >%s/total_ref.fa"%(
+                self.Path+'/*.fasta',
+                self.Path 		
+                ) ,
+            dependencies = dependcy
+        )
 
 
 
 
 
 class Circle_Contig(WorkflowRunner):
-	def __init__(self,Contig,Output,Ver= False):
-		self.Path = os.path.abspath(os.path.split(Output)[0])
-		self.Output = Output
-		Make_path(self.Path)
-		self.Contig = Contig
-		self.Ver = Ver
+    def __init__(self,Contig,Output,Ver= False):
+        self.Path = os.path.abspath(os.path.split(Output)[0])
+        self.Output = Output
+        Make_path(self.Path)
+        self.Contig = Contig
+        self.Ver = Ver
 
-	def workflow(self):
-		print(
-			colored(
-				"Step 2 Check Contig's Termpology result %s"%(self.Ver),
-				"green"
-			)
-		)			
-		commandline = scripts_path+"Circula.py -i %s  -o %s "%(self.Contig,self.Output)
-		if self.Ver:
-			commandline +="-v"
-		self.addTask(
-			"Check_Result",
-			commandline
-		)
+    def workflow(self):
+        print(
+            colored(
+                "Step 2 Check Contig's Termpology result %s"%(self.Ver),
+                "green"
+            )
+        )			
+        commandline = scripts_path+"Circula.py -i %s  -o %s "%(self.Contig,self.Output)
+        if self.Ver:
+            commandline +="-v"
+        self.addTask(
+            "Check_Result",
+            commandline
+        )
 
 
 
 
 class Split_Sequence(WorkflowRunner):
-	"""Split Chromosomes"""
-	def __init__(self,Input,Path,Threshold):
-		self.Path = Path
-		Make_path(Path)
-		self.Threshold = int(Threshold)
-		self.Input = Input
+    """Split Chromosomes"""
+    def __init__(self,Input,Path,Threshold):
+        if not Path.endswith("/"):
+            Path+='/'
+        self.Path = Path
+        Make_path(Path)
+        self.Threshold = int(Threshold)
+        self.Input = Input
+        self.totalfna =Path+'/total.fna'
+
+    def workflow(self):
+        
+        print( 
+            colored("Sequence Split into Chromosome or Plasmid","green"  )
+        )	
+        self.addTask("Split",scripts_path+'/Fasta_split.py -i %s -o %s -t %s'%(
+            self.Input,
+            self.Path,
+            self.Threshold
+        )
+                     )	
+        self.addTask(
+            "Cat_all",  
+            "cat %(path)s/*.fasta >%(path)s/total.fna"%(
+                {"path":self.Path}
+                ),
+            dependencies="Split"
+        )
+
+class RepeatMasker(WorkflowRunner):
+    """Split Chromosomes"""
+    def __init__(self,Input,Path):
+        if not Path.endswith("/"):
+            Path+='/'        
+        self.Path = Path
+        Make_path(Path)
+        self.Input = Input
 
 
-	def workflow(self):
+    def workflow(self):
 
-		print( 
-			colored("Sequence Split into Chromosome or Plasmid","green"  )
-		)	
-		self.addTask("Split",scripts_path+'/Fasta_split.py -i %s -o %s -t %s'%(
-			self.Input,
-			self.Path,
-			self.Threshold
-		)
-				     )	
-
-
-
+        print( 
+            colored("RepeatMakser Sequence","green"  )
+        )	
+        self.addTask("Split",config_hash["Tools"]["repeatmasker"]+" -pa 64 -norna -dir %s  -gff  -html %s  "%(
+            self.Path,
+            self.Input
+        )
+                     )	
 
 
 class Order_Adjust(WorkflowRunner):
-	"Adjust Order"
-	def __init__(self,Contig,Ref,Output):
-		Path = os.path.split(Output)[0]
-		Make_path(Path)
-		self.Contig = Contig
-		self.Ref = Ref
-		self.Output = Output
-	def workflow(self):
-		print(colored("Step3 Order Adjust","green") )
-		self.addTask("Adjust",scripts_path+'/Sequence_order_adjust.py -s %s -r %s -o %s'%(
-			self.Contig,
-			self.Ref,
-			self.Output
-		)
-				     )			
+    "Adjust Order"
+    def __init__(self,Contig,Ref,Output):
+        Path = os.path.split(Output)[0]
+        Make_path(Path)
+        self.Contig = Contig
+        self.Ref = Ref
+        self.Output = Output
+    def workflow(self):
+        print(colored("Step3 Order Adjust","green") )
+        self.addTask("Adjust",scripts_path+'/Sequence_order_adjust.py -s %s -r %s -o %s'%(
+            self.Contig,
+            self.Ref,
+            self.Output
+        )
+                     )			
 class Draw_Graph(WorkflowRunner):
-	def __init__(self,Gbk):
-		self.Gbk = Gbk
-		self.Output = os.path.split(Gbk)[0]+'/out.png'
-	def workflow(self):
-		print(colored("%s Is Drawing"%(self.Gbk),"green"  ))
-		self.addTask("Draw", 
-				     command=scripts_path+"/Circular_Graph_Draw.py -g %s -o %s"%(self.Gbk,self.Output), 
-				     cwd=os.path.split(self.Gbk)[0]
-				     )	
+    def __init__(self,Gbk):
+        self.Gbk = Gbk
+        self.Output = os.path.split(Gbk)[0]+'/out.png'
+    def workflow(self):
+        print(colored("%s Is Drawing"%(self.Gbk),"green"  ))
+        self.addTask("Draw", 
+                     command=scripts_path+"/Circular_Graph_Draw.py -g %s -o %s"%(self.Gbk,self.Output), 
+                     cwd=os.path.split(self.Gbk)[0]
+                     )	
 class Gene_Prediction(WorkflowRunner):
-	def __init__(self,Contig,Genius,Spieces,Strain,Center,Prefix,OutPut,Plasmid, Evalue):
-		self.Contig = Contig
-		self.Commandline = Prokka_Commandline(Contig, Genius, Spieces, Strain, Center, Prefix, OutPut,  Plasmid, Evalue)
+    def __init__(self,Contig,Genius,Spieces,Strain,Center,Prefix,OutPut,Plasmid, Evalue):
+        self.Contig = Contig
+        self.Commandline = Prokka_Commandline(Contig, Genius, Spieces, Strain, Center, Prefix, OutPut,  Plasmid, Evalue)
 
-		self.gbk = OutPut+'/'+Prefix+'.gbk'
-		self.Protein =OutPut+'/'+Prefix+'.faa'
-	def workflow(self):
-		print(colored("%s is annotating"%(self.Contig),'blue') )
-		self.addTask("Annotation",self.Commandline)
-		draw_flow = Draw_Graph(self.gbk)
-		self.addWorkflowTask("Drawing",draw_flow,dependencies=["Annotation"])
+        self.gbk = OutPut+'/'+Prefix+'.gbk'
+        self.Protein =OutPut+'/'+Prefix+'.faa'
+        self.graph = OutPut+'/out.png'
+    def workflow(self):
+        if os.path.isfile(self.graph):
+            return ""
+        print(colored("%s is annotating"%(self.Contig),'blue') )
+        self.addTask("Annotation",self.Commandline)
+        draw_flow = Draw_Graph(self.gbk)
+        self.addWorkflowTask("Drawing",draw_flow,dependencies=["Annotation"])
 
 
 
 class Blast(WorkflowRunner):
-	def __init__(self,Input,Output,Database,E_value):
-		self.Input = Input
-		self.Output = Output
-		self.Database = Database
-		self.E_value = E_value
-		self.blast_result  = self.Output.split('.')[0]+'.top1'
-	def workflow(self):
-		print("%s is start to blast to %s"%(self.Input,self.Database))
-		self.addTask("Blast",scripts_path +"blast_continue.py -i %s -o %s -e %s -d %s -p %s"%(
-			self.Input,
-			os.path.split(self.Output)[1],
-			self.E_value,
-			self.Database,
-			os.path.split(self.Output)[0]
-		)
-				     )
+    def __init__(self,Input,Output,Database,E_value):
+        self.Input = Input
+        self.Output = Output
+        self.Database = Database
+        self.E_value = E_value
+        self.blast_result  = self.Output.split('.')[0]+'.top1'
+    def workflow(self):
+        print("%s is start to blast to %s"%(self.Input,self.Database))
+        blast_out = self.Output+'.xml'
+        self.addTask("Blast",scripts_path +"blast_continue.py -i %s -o %s -e %s -d %s "%(
+            self.Input,
+            blast_out,
+            self.E_value,
+            self.Database,
 
-		self.addTask("Parse",
-				     scripts_path+"/blast_parse.py %s"%(self.Output+'.xml'),
-				     dependencies = ["Blast"]
-				     )
+        )
+                     )
 
-		self.addTask(
-			"Top1",
-			scripts_path+"/cut_best1.py %s"%(self.Output.split('.')[0]+'.Bparse'),dependencies = ["Blast","Parse"]
-		)
+        self.addTask("Parse",
+                     scripts_path+"/blast_parse.py %s"%(blast_out),
+                     dependencies = ["Blast"]
+                     )
+
+        self.addTask(
+            "Top1",
+            scripts_path+"/cut_best1.py %s"%(self.Output.split('.')[0]+'.Bparse'),dependencies = ["Blast","Parse"]
+        )
 
 
 
 class Nr_Mapping(Blast):
-	def __init__(self,Input,Output):
-		super(Nr_Mapping,self).__init__(
-			Input,
-			Output,
-			config_hash["Database"]["nr"],
-			config_hash["Threshold"]["e_value"]
-		)
+    def __init__(self,Input,Output):
+        super(Nr_Mapping,self).__init__(
+            Input,
+            Output,
+            config_hash["Database"]["nr"],
+            config_hash["Threshold"]["e_value"]
+        )
 
 class COG_Mapping(WorkflowRunner):
-	def __init__(self,Input,Output,Database,E_value):
-		self.Input = Input
-		self.Output = Output
-		self.Database = Database
-		self.E_value = E_value
+    def __init__(self,Input,Output,Database,E_value):
+        self.Input = Input
+        self.Output = Output
+        self.Database = Database
+        self.E_value = E_value
 
-		
-	def workflow(self):
-		print(
-			colored(
-				"%s's Cog Result is Running"%(self.Input),
-				"red"
-			)
-		)	
-		if not os.path.isfile(self.Input):
-			raise Exception(
-			    colored("%s is not exist!!"%(self.Input),"green")
-					)		
-		blast_flow = Blast(self.Input, self.Output, self.Database, self.E_value)
-		self.addWorkflowTask("Blast",blast_flow)
 
-		self.addTask("COG",
-				     scripts_path+'/COG_mapping.py -i %(result)s.top1 -o %(result)s'%(
-				         {"result":self.Output}
-				         ),
-				     dependencies="Blast"
+    def workflow(self):
+        print(
+            colored(
+                "%s's Cog Result is Running"%(self.Input),
+                "red"
+            )
+        )	
+        if not os.path.isfile(self.Input):
+            raise Exception(
+                colored("%s is not exist!!"%(self.Input),"green")
+            )		
+        blast_flow = Blast(self.Input, self.Output, self.Database, self.E_value)
+        self.addWorkflowTask("Blast",blast_flow)
 
-				     )
+        self.addTask("COG",
+                     scripts_path+'/COG_mapping.py -i %(result)s.top1 -o %(result)s'%(
+                         {"result":self.Output}
+                         ),
+                     dependencies="Blast"
+
+                     )
 
 
 
 
 class GO_Mapping(WorkflowRunner):
-	def __init__(self,Input,Output,Database,E_value):
-		self.Input = Input
-		self.Output = Output
-		self.Database = Database
-		self.E_value = E_value
+    def __init__(self,Input,Output,Database,E_value):
+        self.Input = Input
+        self.Output = Output
+        self.Database = Database
+        self.E_value = E_value
 
-		
-	def workflow(self):
-		print(
-			colored(
-				"%s's Cog Result is Running"%(self.Input),
-				"red"
-			)
-		)		
-		if not os.path.isfile(self.Input):
-			raise Exception(
-	            colored("%s is not exist!!"%(self.Input),"green")
-	        )		
-		blast_flow = Blast(self.Input, self.Output, self.Database, self.E_value)
-		self.addWorkflowTask("Blast",blast_flow)	
-		self.addTask("GO",
-				     scripts_path+'/GO_mapping.py  %(result)s.top1  %(result)s.'%(
-				         {"result":self.Output}
-				         ),
-				     dependencies="Blast"
 
-				     )
+    def workflow(self):
+        print(
+            colored(
+                "%s's Cog Result is Running"%(self.Input),
+                "red"
+            )
+        )		
+        if not os.path.isfile(self.Input):
+            raise Exception(
+                colored("%s is not exist!!"%(self.Input),"green")
+            )		
+        blast_flow = Blast(self.Input, self.Output, self.Database, self.E_value)
+        self.addWorkflowTask("Blast",blast_flow)	
+        self.addTask("GO",
+                     scripts_path+'/GO_Mapping.py  %(result)s.top1  %(result)s.'%(
+                         {"result":self.Output}
+                         ),
+                     dependencies="Blast"
+
+                     )
 
 class Pathway_Mapping(WorkflowRunner):
-	def __init__(self,Input,Output,Database,E_value):
-		self.Input = Input
-		self.Output = Output
-		self.Database = Database
-		self.E_value = E_value
+    def __init__(self,Input,Output,Database,E_value):
+        self.Input = Input
+        self.Output = Output
+        self.Database = Database
+        self.E_value = E_value
 
 
-	def workflow(self):
-		print(
-			colored(
-		        "%s's KEGG Pathway Result is Running"%(self.Input),
-				"red"
-			)
-		)
-		if not os.path.isfile(self.Input):
-			raise Exception(
-	            colored("%s is not exist!!"%(self.Input),"green")
-	        )		
-		
-		blast_flow = Blast(self.Input, self.Output, self.Database, self.E_value)
-		self.addWorkflowTask("Blast",blast_flow)	
-		self.addTask("To_sql",
-				     config_hash["Utils"]["gapmap"]+'/blast_sql.py -f %(result)s.xml   -r  %(result)s.xml   -1 forward -2 forward  -n %(name)s_for -N %(name)s_rev -p %(pep)s -d %(dna)s'%(
-				         {"pep":self.Input,
-				          "dna":re.sub("\.faa$",".ffn",self.Input),
-				          "result":self.Output,
-				          "name":os.path.split(self.Input)[-1].split('.')[0]
-				          }
-				         ),
-				     dependencies="Blast"
+    def workflow(self):
+        print(
+            colored(
+                "%s's KEGG Pathway Result is Running"%(self.Input),
+                "red"
+            )
+        )
+        if not os.path.isfile(self.Input):
+            raise Exception(
+                colored("%s is not exist!!"%(self.Input),"green")
+            )		
 
-				     )
+        blast_flow = Blast(self.Input, self.Output, self.Database, self.E_value)
+        self.addWorkflowTask("Blast",blast_flow)	
+        self.addTask("To_sql",
+                     config_hash["Utils"]["gapmap"]+'/blast_sql.py -f %(result)s.xml   -r  %(result)s.xml   -1 forward -2 forward  -n %(name)s_for -N %(name)s_rev -p %(pep)s -d %(dna)s'%(
+                         {"pep":self.Input,
+                          "dna":re.sub("\.faa$",".ffn",self.Input),
+                          "result":self.Output,
+                          "name":os.path.split(self.Input)[-1].split('.')[0]
+                          }
+                         ),
+                     dependencies="Blast"
+
+                     )
 
 
 
-		source_location  = os.path.split(self.Output)[0]+'/source/'
-		self.addTask(
-			"Build",
-			config_hash["Utils"]["gapmap"]+"/Gap_map_new/Mapping_sql.py %s"%(source_location),
-			dependencies=["Blast","To_sql"]
-		)
-		self.addTask(
-			"Make",
-			config_hash["Tools"]["sphinx"] +" -b singlehtml -d %(out)s/doctrees %(location) %(out)s/pathway"%(
-				{
-				    "out":self.Output,
-				    "location":source_location
-				}
-				),
-			dependencies==["Blast","To_sql","Build"]
-		)		
-		self.addTask(
-			"Clean",
-			"rm %s -rf"%(source_location),
-			dependencies==["Blast","To_sql","Build","Make"]
+        source_location  = os.path.split(self.Output)[0]+'/source/'
+        self.addTask(
+            "Build",
+            config_hash["Utils"]["gapmap"]+"/Mapping_sql.py %s"%(source_location),
+            dependencies=["Blast","To_sql"]
+        )
+        self.addTask(
+            "Make",
+            config_hash["Tools"]["sphinx"] +" -b singlehtml -d %(out)s/doctrees %(location)s %(out)s/pathway"%(
+                {
+                    "out":self.Output,
+                    "location":source_location
+                }
+                ),
+            dependencies=["Blast","To_sql","Build"]
+        )		
+        self.addTask(
+            "Clean",
+            "rm %s -rf"%(source_location),
+            dependencies=["Blast","To_sql","Build","Make"]
 
-		)	
+        )	
 
 
 
 
 
 class Data_prapare(WorkflowRunner):
-	def __init__(self,Contig,OUTPUT):
-		self.Contig = Contig
-		self.Output = OUTPUT
-		Get_Path(OUTPUT)
-		Check_file([["",self.Contig]])
+    def __init__(self,Contig,OUTPUT):
+        self.Contig = Contig
+        if not OUTPUT.endswith('/'):
+            OUTPUT+='/'
+        self.Output = OUTPUT
+        Get_Path(OUTPUT)
+        Check_file([["",self.Contig]])
 
-		self.ref_fasta = ""	
-	def get_contigs(self):
-		return glob.glob(os.path.abspath(self.result_path)+'/*.fasta')
-	def workflow(self):
-		dependcy = []
-		refer_path = self.Output+"/reference/"
-		circyle_path = self.Output+"/Circyled_contig/"
-		adjusted_path = self.Output+"/Adjusted_contig/"
+        self.ref_fasta = ""	
+    def get_contigs(self):
+        return glob.glob(os.path.abspath(self.result_path)+'/*.fasta')
+    def workflow(self):
+        dependcy = []
+        refer_path = self.Output+"/reference/"
+        circyle_path = self.Output+"/Circyled_contig/"
+        adjusted_path = self.Output+"/Adjusted_contig/"
 
-		splited_path = self.Output+"/Assembly_END/"
-		self.result_path = splited_path
-		if config_hash["Reference"]["gbk"]:
-			Id_All = config_hash["Reference"]["gbk"]
-			down_flow = Download_Ref(Id_All, refer_path)
-			self.addWorkflowTask("Download", down_flow)
-			self.gbk_list = down_flow.gbk_list
-			self.ref_fasta = down_flow.fasta
-			dependcy.append("Download")
+        splited_path = self.Output+"/Assembly_END/"
+        self.result_path = splited_path
+        if config_hash["Reference"]["gbk"]:
+            Id_All = config_hash["Reference"]["gbk"]
+            down_flow = Download_Ref(Id_All, refer_path)
+            self.addWorkflowTask("Download", down_flow)
+            self.gbk_list = down_flow.gbk_list
+            self.ref_fasta = down_flow.fasta
+            dependcy.append("Download")
 
-		if config_hash["Pipeline"]["checkassembly"].strip().lower()=="yes":
-			Ver = True
-		else:
-			Ver = False
-		cir_flow = Circle_Contig(self.Contig,circyle_path+"Circled.Contigs",Ver)
-		self.addWorkflowTask("Circle",cir_flow,dependencies=dependcy)
-		dependcy.append("Circle")
-		adjusted_result = cir_flow.Output
+        if config_hash["Pipeline"]["checkassembly"].strip().lower()=="yes":
+            Ver = True
+        else:
+            Ver = False
+        cir_flow = Circle_Contig(self.Contig,circyle_path+"Circled.Contigs",Ver)
+        self.addWorkflowTask("Circle",cir_flow,dependencies=dependcy)
+        dependcy.append("Circle")
+        adjusted_result = cir_flow.Output
 
 
-		# Adjusted Result
-		if config_hash["Reference"]["gbk"]:
-			adjust_flow = Order_Adjust(adjusted_result, self.ref_fasta, adjusted_path+"assembly_end.fasta")
-			self.addWorkflowTask("Adjusted",adjust_flow,dependencies= dependcy)
-			adjusted_result = adjust_flow.Output
-			dependcy.append("Adjusted")
+        # Adjusted Result
+        if config_hash["Reference"]["gbk"]:
+            adjust_flow = Order_Adjust(adjusted_result, self.ref_fasta, adjusted_path+"assembly_end.fasta")
+            self.addWorkflowTask("Adjusted",adjust_flow,dependencies= dependcy)
+            adjusted_result = adjust_flow.Output
+            dependcy.append("Adjusted")
 
-		split_flow = Split_Sequence(adjusted_result, splited_path, config_hash["Threshold"]["genomesize"])
-		self.addWorkflowTask("Split",split_flow,dependencies=dependcy)
-		dependcy.append("Split")	
+        split_flow = Split_Sequence(adjusted_result, splited_path, config_hash["Threshold"]["genomesize"])
+        self.addWorkflowTask("Split",split_flow,dependencies=dependcy)
+        dependcy.append("Split")
+        repeatmasker_flow = RepeatMasker(split_flow.totalfna, self.Output+"/RepeatMasker/")
+        self.addWorkflowTask("Repeat",repeatmasker_flow,dependencies=dependcy)
+        	
 class Annotation_Run(WorkflowRunner):
-	def __init__(self,Contig_list,OUTPUT):
-		self.Contig_list = Contig_list
-		self.Output = os.path.abspath(OUTPUT)
-		Get_Path(OUTPUT)
-	def workflow(self):
-		dependcy = []
-		annotation_path = self.Output+"/Annotation/"
-		splited_path = self.Output+"/Assembly_END/"
-		prediction_path  =  self.Output+"/Prediction/"
-		protein_sequence_list = []
+    def __init__(self,Contig_list,OUTPUT):
+        self.Contig_list = Contig_list
+        self.Output = os.path.abspath(OUTPUT)
+        Get_Path(OUTPUT)
+    def workflow(self):
+        dependcy = []
+        annotation_path = self.Output+"/Annotation/"
+        splited_path = self.Output+"/Assembly_END/"
+        prediction_path  =  self.Output+"/Prediction/"
+        protein_sequence_list = []
 
 
-		# Gene Prediction
-		for each_contig in self.Contig_list:
-			prefix = re.search("^(\w+\d+)\.",os.path.split(each_contig)[-1]).group(1)
-			category = re.search("^(\w+)\d+\.",os.path.split(each_contig)[-1]).group(1)
-			genius = config_hash["Taxon"]["genius"]
-			spieces = config_hash["Taxon"]["spieces"]
-			strain = config_hash["Taxon"]["strain"]
-			center = config_hash["Taxon"]["center"]
+        # Gene Prediction
+        for each_contig in self.Contig_list:
+            prefix = re.search("^(\w+\d+)\.",os.path.split(each_contig)[-1]).group(1)
+            category = re.search("^(\w+)\d+\.",os.path.split(each_contig)[-1]).group(1)
+            genius = config_hash["Taxon"]["genius"]
+            spieces = config_hash["Taxon"]["spieces"]
+            strain = config_hash["Taxon"]["strain"]
+            center = config_hash["Taxon"]["center"]
 
-			each_prediction_path = prediction_path+'/%s/'%(prefix)
-			if category =="Plasmid":
-				plasmid = prefix
-			else:
-				plasmid=''
-			self.addWorkflowTask(
-				"%s_prediction"%(prefix),
-				Gene_Prediction(
-					each_contig,
-					genius,
-					spieces, 
-					strain, 
-					center, 
-					prefix, 
-					each_prediction_path, 
-					plasmid,
-					config_hash["Threshold"]["e_value"]
-					),
-			)
-			dependcy.append(
-				"%s_prediction"%(prefix)
-			)
-			protein_sequence_list.append(
-				each_prediction_path+'/%s.faa'%(prefix)
-			)	
+            each_prediction_path = prediction_path+'/%s/'%(prefix)
+            if category =="Plasmid":
+                plasmid = prefix
+            else:
+                plasmid=''
+            self.addWorkflowTask(
+                "%s_prediction"%(prefix),
+                Gene_Prediction(
+                    each_contig,
+                    genius,
+                    spieces, 
+                    strain, 
+                    center, 
+                    prefix, 
+                    each_prediction_path, 
+                    plasmid,
+                    config_hash["Threshold"]["e_value"]
+                    ),
+            )
+            dependcy.append(
+                "%s_prediction"%(prefix)
+            )
+            protein_sequence_list.append(
+                each_prediction_path+'/%s.faa'%(prefix)
+            )	
 
-		# COG,Pathway,GO,Nr Annotation
-		for each_protein in protein_sequence_list:
-			each_dependcy = dependcy
-			each_name = os.path.split(each_protein)[-1].split('.')[0]
-			self.addWorkflowTask(
-				"Nr%s"%(each_name),
-				Nr_Mapping(
-					each_protein, 
-					annotation_path+'/%s/nr/%s'%(each_name,each_name)
-					),
-				dependencies= dependcy
-			)
+        # COG,Pathway,GO,Nr Annotation
+        for each_protein in protein_sequence_list:
+            
+            each_dependcy = dependcy
+            each_name = os.path.split(each_protein)[-1].split('.')[0]
+            self.addWorkflowTask(
+                "Pathway%s"%(each_name),
+                Pathway_Mapping(
+                    each_protein, 
+                    annotation_path+'/%s/Pathway/%s'%(each_name,each_name),
+                    config_hash["Database"]["kegg"],
+                    config_hash["Threshold"]["e_value"]
+                    ),
+                dependencies= dependcy
+            )	
+            each_dependcy.append("Pathway%s"%(each_name))            
+            self.addWorkflowTask(
+                "Nr%s"%(each_name),
+                Nr_Mapping(
+                    each_protein, 
+                    annotation_path+'/%s/nr/%s'%(each_name,each_name)
+                    ),
+                dependencies= dependcy
+            )
 
-			each_dependcy.append("Nr%s"%(each_name))
-			self.addWorkflowTask(
-				"COG%s"%(each_name),
-				COG_Mapping(each_protein, 
-						    annotation_path+'/%s/COG/%s'%(each_name,each_name),
-						    config_hash["Database"]["eggnog"],
-						    config_hash["Threshold"]["e_value"]
+            each_dependcy.append("Nr%s"%(each_name))
+            self.addWorkflowTask(
+                "COG%s"%(each_name),
+                COG_Mapping(each_protein, 
+                            annotation_path+'/%s/COG/%s'%(each_name,each_name),
+                            config_hash["Database"]["eggnog"],
+                            config_hash["Threshold"]["e_value"]
 
-						    ),
-				dependencies= dependcy
-			)			
-			each_dependcy.append("COG%s"%(each_name))
-			self.addWorkflowTask(
-				"GO%s"%(each_name),
-				GO_Mapping(each_protein, 
-						   annotation_path+'/%s/GO/%s'%(each_name,each_name),
-						   config_hash["Database"]["swiss"],
-						   config_hash["Threshold"]["e_value"]
+                            ),
+                dependencies= dependcy
+            )			
+            each_dependcy.append("COG%s"%(each_name))
+            self.addWorkflowTask(
+                "GO%s"%(each_name),
+                GO_Mapping(each_protein, 
+                           annotation_path+'/%s/GO/%s'%(each_name,each_name),
+                           config_hash["Database"]["swiss"],
+                           config_hash["Threshold"]["e_value"]
 
-						   ),
-				dependencies= dependcy
-			)			
-			each_dependcy.append("GO%s"%(each_name))
+                           ),
+                dependencies= dependcy
+            )			
+            each_dependcy.append("GO%s"%(each_name))
 
-			self.addWorkflowTask(
-				"Pathway%s"%(each_name),
-				Pathway_Mapping(
-			        each_protein, 
-			        annotation_path+'/%s/Pathway/%s'%(each_name,each_name),
-			        config_hash["Database"]["kegg"],
-			        config_hash["Threshold"]["e_value"]
-						   ),
-				dependencies= dependcy
-			)	
-			each_dependcy.append("Pathway%s"%(each_name))
+            
 
 
 if __name__ == '__main__':
-	(options, args) = parser.parse_args()
-	Sequence = options.Sequence
-	OUTPUT   = options.Output
-	Config   = options.Config
-	os.environ["PATH"] = os.getenv("PATH")+'; '+scripts_path
-	if not os.path.isfile(Config):
-		raise Exception("File %s is not exist!!"%(Config))
-	Get_Addtional_Config( Config )
+    (options, args) = parser.parse_args()
+    Sequence = options.Sequence
+    OUTPUT   = options.Output
+    Config   = options.Config
+    os.environ["PATH"] = os.getenv("PATH")+'; '+scripts_path
+    if not os.path.isfile(Config):
+        raise Exception("File %s is not exist!!"%(Config))
+    Get_Addtional_Config( Config )
 
-	data_prepare_flow = Data_prapare(Sequence,OUTPUT)
+    data_prepare_flow = Data_prapare(Sequence,OUTPUT)
 
-	error = data_prepare_flow.run()
-	Contig_list = data_prepare_flow.get_contigs()
+    error = data_prepare_flow.run()
+    Contig_list = data_prepare_flow.get_contigs()
 
-	annotation_flow = Annotation_Run(Contig_list, OUTPUT)
-	error = annotation_flow.run()
+    annotation_flow = Annotation_Run(Contig_list, OUTPUT)
+    error = annotation_flow.run()
 
-	
