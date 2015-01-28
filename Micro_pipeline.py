@@ -51,7 +51,7 @@ class Download_Ref(WorkflowRunner):
 
             self.addTask(
                 "Download_ref%s"%(i),
-                scripts_path+"/Download_reference.py -i %s -o %s"%(each_reference,self.Path ),
+                "nohup "+scripts_path+"/Download_reference.py -i %s -o %s"%(each_reference,self.Path ),
 
             )
 
@@ -59,7 +59,7 @@ class Download_Ref(WorkflowRunner):
 
         self.addTask(
             "Combine",
-            "cat %s >%s/total_ref.fa"%(
+            "nohup cat %s >%s/total_ref.fa"%(
                 self.Path+'/*.fasta',
                 self.Path 		
                 ) ,
@@ -85,7 +85,7 @@ class Circle_Contig(WorkflowRunner):
                 "green"
             )
         )			
-        commandline = scripts_path+"Circula.py -i %s  -o %s "%(self.Contig,self.Output)
+        commandline = "nohup " +scripts_path+"Circula.py -i %s  -o %s "%(self.Contig,self.Output)
         if self.Ver:
             commandline +="-v"
         self.addTask(
@@ -112,7 +112,7 @@ class Split_Sequence(WorkflowRunner):
         print( 
             colored("Sequence Split into Chromosome or Plasmid","green"  )
         )	
-        self.addTask("Split",scripts_path+'/Fasta_split.py -i %s -o %s -t %s'%(
+        self.addTask("Split","nohup " +scripts_path+'/Fasta_split.py -i %s -o %s -t %s'%(
             self.Input,
             self.Path,
             self.Threshold
@@ -158,7 +158,7 @@ class Order_Adjust(WorkflowRunner):
         self.Output = Output
     def workflow(self):
         print(colored("Step3 Order Adjust","green") )
-        self.addTask("Adjust",scripts_path+'/Sequence_order_adjust.py -s %s -r %s -o %s'%(
+        self.addTask("Adjust","nohup "+scripts_path+'/Sequence_order_adjust.py -s %s -r %s -o %s'%(
             self.Contig,
             self.Ref,
             self.Output
@@ -171,7 +171,7 @@ class Draw_Graph(WorkflowRunner):
     def workflow(self):
         print(colored("%s Is Drawing"%(self.Gbk),"green"  ))
         self.addTask("Draw", 
-                     command=scripts_path+"/Circular_Graph_Draw.py -g %s -o %s"%(self.Gbk,self.Output), 
+                     command="nohup "+ scripts_path+"/Circular_Graph_Draw.py -g %s -o %s"%(self.Gbk,self.Output), 
                      cwd=os.path.split(self.Gbk)[0]
                      )	
 class Gene_Prediction(WorkflowRunner):
@@ -202,7 +202,7 @@ class Blast(WorkflowRunner):
     def workflow(self):
         print("%s is start to blast to %s"%(self.Input,self.Database))
         blast_out = self.Output+'.xml'
-        self.addTask("Blast",scripts_path +"blast_continue.py -i %s -o %s -e %s -d %s "%(
+        self.addTask("Blast","nohup "+scripts_path +"blast_continue.py -i %s -o %s -e %s -d %s "%(
             self.Input,
             blast_out,
             self.E_value,
@@ -212,13 +212,13 @@ class Blast(WorkflowRunner):
                      )
 
         self.addTask("Parse",
-                     scripts_path+"/blast_parse.py %s"%(blast_out),
+                     "nohup " +scripts_path+"/blast_parse.py %s"%(blast_out),
                      dependencies = ["Blast"]
                      )
 
         self.addTask(
             "Top1",
-            scripts_path+"/cut_best1.py %s"%(self.Output.split('.')[0]+'.Bparse'),dependencies = ["Blast","Parse"]
+            "nohup "+scripts_path+"/cut_best1.py %s"%(self.Output.split('.')[0]+'.Bparse'),dependencies = ["Blast","Parse"]
         )
 
 
@@ -255,7 +255,7 @@ class COG_Mapping(WorkflowRunner):
         self.addWorkflowTask("Blast",blast_flow)
 
         self.addTask("COG",
-                     scripts_path+'/COG_mapping.py -i %(result)s.top1 -o %(result)s.cog'%(
+                     "nohup "+scripts_path+'/COG_mapping.py -i %(result)s.top1 -o %(result)s.cog'%(
                          {"result":self.Output}
                          ),
                      dependencies="Blast"
@@ -265,7 +265,7 @@ class COG_Mapping(WorkflowRunner):
         
         self.addTask(
             "Stat",
-            scripts_path+'/cog_stat.py  %(result)s.cog %(result)s.stat'%(
+            "nohup "+scripts_path+'/cog_stat.py  %(result)s.cog %(result)s.stat'%(
                {"result":self.Output}
             ),
             dependencies=["Blast","COG"]
@@ -274,7 +274,7 @@ class COG_Mapping(WorkflowRunner):
         
         self.addTask(
             "Draw",
-            scripts_path+'/Cog_draw.py  %(result)s.cog %(path)s/stats.png %(path)s/Draw.R'%(
+            "nohup "+scripts_path+'/Cog_draw.py  %(result)s.cog %(path)s/stats.png %(path)s/Draw.R'%(
                {"result":self.Output,
                 "path":os.path.dirname(self.Output)
                 }
@@ -307,7 +307,7 @@ class GO_Mapping(WorkflowRunner):
         blast_flow = Blast(self.Input, self.Output, self.Database, self.E_value)
         self.addWorkflowTask("Blast",blast_flow)	
         self.addTask("GO",
-                     scripts_path+'/GO_Mapping.py  %(result)s.top1  %(result)s'%(
+                     "nohup "+scripts_path+'/GO_Mapping.py  %(result)s.top1  %(result)s'%(
                          {"result":self.Output}
                          ),
                      dependencies="Blast"
@@ -317,7 +317,7 @@ class GO_Mapping(WorkflowRunner):
         
         self.addTask(
             "Fetch",
-            scripts_path+'/get_GO.py  %(result)s.GO-mapping.detail  %(result)s.annotaion_detail'%(
+            "nohup "+scripts_path+'/get_GO.py  %(result)s.GO-mapping.detail  %(result)s.annotaion_detail'%(
                                     {"result":self.Output}
                                     ), 
             dependencies=["Blast","GO"]
@@ -328,7 +328,7 @@ class GO_Mapping(WorkflowRunner):
         
         self.addTask(
                     "Detail",
-                    scripts_path+'/Go_list.py  %(result)s.GO-mapping.list  %(result)s.class'%(
+                    "nohup "+scripts_path+'/Go_list.py  %(result)s.GO-mapping.list  %(result)s.class'%(
                                             {"result":self.Output}
                                             ), 
                     dependencies=["Blast","GO"]
@@ -339,7 +339,7 @@ class GO_Mapping(WorkflowRunner):
         
         self.addTask(
             "Stats",
-            scripts_path+"/GO_stat.py  %(result)s.GO-mapping.list %(result)s.stat"%(
+            "nohup " +scripts_path+"/GO_stat.py  %(result)s.GO-mapping.list %(result)s.stat"%(
                 {
                     "result":self.Output
                 }
@@ -350,7 +350,7 @@ class GO_Mapping(WorkflowRunner):
         
         self.addTask(
             "Draw",
-            scripts_path+'/GO_draw.py  %(result)s.class %(path)s/stats.png %(path)s/Draw.R'%(
+            "nohup "+scripts_path+'/GO_draw.py  %(result)s.class %(path)s/stats.png %(path)s/Draw.R'%(
                                {"result":self.Output,
                                 "path":os.path.dirname(self.Output)
                                 }
@@ -418,7 +418,7 @@ class Pathway_Mapping(WorkflowRunner):
         )
         self.addTask(
                     "Stat",
-                    scripts_path+"/Pathway_stats.py %(out)s.detail %(out)s.stat"%(
+                    "nohup "+scripts_path+"/Pathway_stats.py %(out)s.detail %(out)s.stat"%(
                     {
                         "out":
                         self.Output
@@ -429,7 +429,7 @@ class Pathway_Mapping(WorkflowRunner):
         )        
         self.addTask(
                             "Draw",
-                            scripts_path+"/Pathway_Draw.py   %(out)s.detail %(path)sstat.png  %(path)sstat.R"%(
+                            "nohup " +scripts_path+"/Pathway_Draw.py   %(out)s.detail %(path)sstat.png  %(path)sstat.R"%(
                             {
                                 "out":self.Output,
                                 "path":os.path.split(self.Output)[0]+'/'
