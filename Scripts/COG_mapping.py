@@ -24,11 +24,11 @@ END = open(options.output,'w')
 END.write("Gene\tSubject\tE_value\tBitscore\tCOG\tAnnotation\tCOG Category\n")
 for line in open(options.input,'rU'):
 	line_l = line.strip().split("\t")
-	subj= line_l[6].split()[0]
-	score = line_l[11]
-	e_value = line_l[12]
+	subj= line_l[1].split()[0]
+	score = line_l[-1]
+	e_value = line_l[-2]
 	
-	query = line_l[2].split()[0]
+	query = line_l[0].split()[0]
 	gene_nog = NOG_GENE.select(AND(NOG_GENE.q.Gene==subj, NOG_GENE.q.NOG.startswith("COG"))   )
 	unique = {}
 	for each_gene_nog in gene_nog:

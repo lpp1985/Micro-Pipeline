@@ -35,19 +35,23 @@ if __name__=="__main__":
     OUTPUT = options.output
     Database = options.Database
     Path = os.path.split(OUTPUT)[0]
+    if not Path:
+	Path="./"
     if not os.path.exists(Path):
         os.makedirs(Path)
     E_value = options.Evalue
 
     RAW = fasta_check(open(Input,'rU'))
-    all_seq = {}
-    for t,s in RAW:
-        all_seq[t[1:-1]] = s.strip()+'\n'
+    #all_seq = {}
+    #for t,s in RAW:
+    #   all_seq[t[1:-1]] = s.strip()+'\n'
 
-    commandline = """  cat  %s |parallel --gnu -j 64 --block 98733 --recstart '>' --pipe  blastp -query - -evalue %s -num_threads 60 -outfmt 5  -db %s    -num_alignments 1 >%s 2>/dev/null"""%( 
+    commandline = """    ghostz aln  -i  %s -b 1  -a 64   -d %s   -o /dev/stdout | awk 'NR > 5 {print $0}' |awk -F'[\t]'   '$11<%s'|sed    "s/^finished$//g"   | sed  '/^$/d'   >%s 2>/dev/null"""%( 
         Input,
-        E_value,
+        
         Database,
+	E_value,
         OUTPUT 
     )
     os.system(commandline)
+    

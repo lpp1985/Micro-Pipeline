@@ -18,7 +18,12 @@ sys.path.append(
     config_hash["Utils"]["gapmap"] 
 )
 from parse import *
-
+Dbname = sys.argv[1]
+Ddatabase_engine = create_engine(  "sqlite:///%s/%s"%(base_dir,Dbname) )
+Ddatabase_engine.connect()
+Base = declarative_base()
+Session = sessionmaker( bind = Ddatabase_engine  )
+session = Session()	
 def get_GeneIdAndKoid(  dir_id  ):
 
     mapped = session.query( Gene_Ko_Table  ).filter( 
@@ -62,9 +67,9 @@ for each_cat in function_cate:
     all_need = mapped_GeneKO.join(Ko_subquery,Gene_Ko_Table.Ko_id == Ko_subquery.c.KO_Id).group_by(Gene_Ko_Table.Gene_id)
     for each_data in all_need:
         detail[each_cat][each_data.Gene.Name]=""
-END = open(sys.argv[1],'w')
+END = open(sys.argv[2],'w')
 END.write("Category\tGene\n")
-END2 = open(sys.argv[2],'w')
+END2 = open(sys.argv[3],'w')
 END2.write("Category\tGene Number\n")
 for key in detail:
     END2.write(key+'\t%s\n'%(  len(detail[key])    ))

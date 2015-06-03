@@ -5,7 +5,7 @@
   Purpose: 
   Created: 2015/1/23
 """
-import sys
+import sys,os
 
 commandline = """
 #!/usr/local/bin/Rscript
@@ -24,3 +24,4 @@ dev.off()
 SCRIPT = open(sys.argv[3],'w')
 SCRIPT.write(commandline)
 SCRIPT.close()
+os.system("Rscript %s"%(sys.argv[3]))

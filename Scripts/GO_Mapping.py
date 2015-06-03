@@ -16,9 +16,8 @@ geneid_id = Ddict()
 for line in RAW:
 
 	line_l = line.split('\t')
-
 	name = line_l[2].split()[0]
-	gi = re.search( '(?:sp|tr)\|(\w+)' ,line_l[5] ).group(1)
+	gi = re.search( '(?:sp|tr)\|(\w+)' ,line_l[1] ).group(1)
 
 	output = '-\t-\t->\t'+name+'\t'+gi
 	geneid_id[ gi ][ name ] = output

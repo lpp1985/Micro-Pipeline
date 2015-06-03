@@ -11,19 +11,20 @@ if not python_env:
 	python_env = ""
 os.environ['PYTHONPATH']=python_env+','+os.path.split(__file__)[0]+'/../Lib/'
 sys.path.append(os.path.split(__file__)[0]+'/../Lib/')
-from Dependcy import config_hash
+from Dependcy import *
 from optparse import OptionParser
 from lpp import *
-
 def Adjust_Seqeunce(head_name,title,sequence):
 	"sequence Adjust"
 	status = re.search("(\w+)\n",title).group(1)
 	CACHE = open("cache",'w')
 	title = title.split()[0]
-	CACHE.write(title+sequence)
+	CACHE.write(title+"\n"+sequence)
+	CACHE.close()
 	if status =="Circle":
 		command_line = """ %s --maxmatch %s %s 1>/dev/null 2>/dev/null && show-tiling -a  out.delta    """%( nucmer,CACHE.name,head_name  )
 		stdout = os.popen( command_line  ).read()
+		print(command_line)
 		if not stdout:
 			seq_new = sequence
 			return seq_new
@@ -80,7 +81,9 @@ if __name__ == '__main__':
 		s = re.sub("\s+","",s)
 		HEAD.write(t.split()[0]+'\n'+s[:2000]+'\n')
 	HEAD.close()
-	nucmer = config_hash["Tools"]["nucmer"]
+	nucmer = config_hash["Tools"]["Nucmer"]
+	nucmer ="nucmer"
 	for t,s in SEQUENCE:
+		s = re.sub("\s+","",s)
 		seq_adjusted = Adjust_Seqeunce(HEAD.name, t, s)
 		OUTPUT.write(t+seq_adjusted)
